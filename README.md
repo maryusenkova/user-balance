@@ -125,7 +125,7 @@ curl -X POST -d "{\"id\":1, \"amount\":100, \"serviceId\":1, \"orderId\":1234}" 
 Ответ содержат ссылку на файл:
 ```json
 {
-  "file":"localhost:8080/csvreports/11_2022_report.csv"
+  "file":"./csvreports/11_2022_report.csv"
 }
 ```
 Пример curl запроса:
