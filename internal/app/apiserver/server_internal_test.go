@@ -29,6 +29,13 @@ func TestServer_handleBalanceAdd(t *testing.T) {
 				"amount": 100,
 			},
 			expectedCode: http.StatusOK,
+		}, {
+			name: "invalid",
+			payload: map[string]string{
+				"id":     "dc",
+				"amount": "100",
+			},
+			expectedCode: http.StatusBadRequest,
 		},
 	}
 

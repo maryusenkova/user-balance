@@ -317,7 +317,10 @@ func (s *server) handleGetReport() http.HandlerFunc {
 			s.error(w, r, http.StatusUnprocessableEntity, err)
 			return
 		}
-
+		if len(report) == 0 {
+			s.respond(w, r, http.StatusUnprocessableEntity, map[string]string{"error": "No data for this month"})
+			return
+		}
 		dir := "csvreports"
 		_, err = os.Stat(dir)
 		if os.IsNotExist(err) {
@@ -345,8 +348,7 @@ func (s *server) handleGetReport() http.HandlerFunc {
 				return
 			}
 		}
-		path = fmt.Sprintf("%s/%s", "localhost:8080", file.Name())
-		s.respond(w, r, http.StatusOK, map[string]string{"file": path})
+		s.respond(w, r, http.StatusOK, map[string]string{"file": fmt.Sprintf("./%s", file.Name())})
 	}
 }
 
