@@ -32,6 +32,25 @@ func (r *UserAccountRepository) Add(tx *sql.Tx, account *model.UserAccount) (*mo
 	return account, nil
 }
 
+func (r *UserAccountRepository) Transfer(tx *sql.Tx, idFrom, idTo, amount int) (*model.UserAccount, error) {
+	account := &model.UserAccount{}
+	if _, err := tx.Exec(
+		"UPDATE user_accounts SET balance = balance - $1 where user_id = $2",
+		amount,
+		idFrom,
+	); err != nil {
+		return nil, err
+	}
+	if _, err := tx.Exec(
+		"UPDATE user_accounts SET balance = balance + $1 where user_id = $2 ",
+		amount,
+		idTo,
+	); err != nil {
+		return nil, err
+	}
+	return account, nil
+}
+
 func (r *UserAccountRepository) Reserve(tx *sql.Tx, account *model.UserAccount) (*model.UserAccount, error) {
 	if err := tx.QueryRow(
 		"UPDATE user_accounts SET balance = balance - $1, reserved_balance = reserved_balance + $1 where user_id = $2 RETURNING user_id, balance",

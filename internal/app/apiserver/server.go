@@ -42,7 +42,7 @@ func (s *server) configureRouter() {
 	s.router.HandleFunc("/confirm_reserve", s.handleConfirm()).Methods("POST")
 	s.router.HandleFunc("/abort_reserve", s.handleAbort()).Methods("POST")
 	s.router.HandleFunc("/get_report", s.handleGetReport()).Methods("POST")
-	//s.router.HandleFunc("/csvreports/{filename}", s.getFile()).Methods("GET")
+	s.router.HandleFunc("/account/transfer", s.handleTransfer()).Methods("POST")
 	s.router.HandleFunc("/account/history", s.handleGetHistory()).Methods("POST")
 }
 
@@ -126,6 +126,95 @@ func (s *server) handleBalanceAdd() http.HandlerFunc {
 		}
 		tx.Commit()
 		s.respond(w, r, http.StatusOK, account)
+	}
+}
+
+func (s *server) handleTransfer() http.HandlerFunc {
+	type request struct {
+		IdFrom int `json:"idFrom"`
+		IdTo   int `json:"idTo"`
+		Amount int `json:"amount"`
+	}
+	return func(w http.ResponseWriter, r *http.Request) {
+		req := &request{}
+
+		tx, err := s.store.BeginTx()
+		if err != nil {
+			s.error(w, r, http.StatusBadRequest, err)
+			return
+		}
+
+		if err := json.NewDecoder(r.Body).Decode(req); err != nil {
+			s.error(w, r, http.StatusBadRequest, err)
+			return
+		}
+
+		accountFrom, err := s.store.UserAccount().FindById(req.IdFrom)
+		if err != nil {
+			err_str := fmt.Sprintf("No user with id = %d", req.IdFrom)
+			s.respond(w, r, http.StatusUnprocessableEntity, map[string]string{"error": err_str})
+			return
+		}
+
+		if accountFrom.Balance < req.Amount {
+			err_str := fmt.Sprintf("Not enough money for transfer. Current balance is %d", accountFrom.Balance)
+			s.respond(w, r, http.StatusUnprocessableEntity, map[string]string{"error": err_str})
+			return
+		}
+
+		transactionFrom := &model.Transaction{
+			User_id:     req.IdFrom,
+			Amount:      req.Amount,
+			Description: fmt.Sprintf("Перевод средств пользователю id=%d", req.IdTo),
+			Closed_date: time.Now(),
+			Success_flg: true,
+			Type:        "reserve",
+		}
+
+		transactionTo := &model.Transaction{
+			User_id:     req.IdTo,
+			Amount:      req.Amount,
+			Description: fmt.Sprintf("Перевод средств от пользователя id=%d", req.IdFrom),
+			Closed_date: time.Now(),
+			Success_flg: true,
+			Type:        "add",
+		}
+
+		created := true
+		if _, err := s.store.UserAccount().FindById(req.IdTo); err != nil {
+			created = false
+		}
+
+		if !created {
+			accountTo := &model.UserAccount{
+				User_id: req.IdTo,
+				Balance: 0,
+			}
+			if err := s.store.UserAccount().Create(tx, accountTo); err != nil {
+				tx.Rollback()
+				s.error(w, r, http.StatusUnprocessableEntity, err)
+				return
+			}
+		}
+		_, err = s.store.UserAccount().Transfer(tx, req.IdFrom, req.IdTo, req.Amount)
+		if err != nil {
+			tx.Rollback()
+			s.error(w, r, http.StatusUnprocessableEntity, err)
+			return
+		}
+
+		if err := s.store.Transaction().CreateAddTransaction(tx, transactionTo); err != nil {
+			tx.Rollback()
+			s.error(w, r, http.StatusUnprocessableEntity, err)
+			return
+		}
+		if err := s.store.Transaction().CreateAddTransaction(tx, transactionFrom); err != nil {
+			tx.Rollback()
+			s.error(w, r, http.StatusUnprocessableEntity, err)
+			return
+		}
+		tx.Commit()
+		s.respond(w, r, http.StatusOK, map[string]string{"success": "Transfer completed"})
 	}
 }
 

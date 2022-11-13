@@ -12,6 +12,7 @@ type UserAccountRepository interface {
 	Reserve(*sql.Tx, *model.UserAccount) (*model.UserAccount, error)
 	ConfirmReserve(*sql.Tx, *model.UserAccount) (*model.UserAccount, error)
 	AbortReserve(*sql.Tx, *model.UserAccount) (*model.UserAccount, error)
+	Transfer(*sql.Tx, int, int, int) (*model.UserAccount, error)
 }
 
 type TransactionRepository interface {

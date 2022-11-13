@@ -126,11 +126,11 @@ paths:
           description: Bad request
   /account/history:
     post:
-      summary: Abort reserve
+      summary: Get history
       description: get history of user's transactions
       operationId: get-history
       requestBody:
-        description: user id
+        description: user id and info about sorting and pagination
         content:
           application/json:
             schema:
@@ -143,6 +143,25 @@ paths:
           description: Internal server error
         "400":
           description: Bad request
+  /account/transfer:
+      post:
+        summary: Transfer money
+        description: transfer money from one user to another
+        operationId: transfer-money
+        requestBody:
+          description: user from, user to, amount
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/transfer_request'
+          required: true
+        responses:
+          "200":
+            description: OK
+          "422":
+            description: Unprocessible entity
+          "400":
+            description: Bad request
 components:
   schemas:
     add_request:
@@ -178,6 +197,15 @@ components:
         serviceId:
           type: integer
         orderId:
+          type: integer
+        amount:
+          type: integer
+    transfer_request:
+      type: object
+      properties:
+        idFrom:
+          type: integer
+        idTo:
           type: integer
         amount:
           type: integer
