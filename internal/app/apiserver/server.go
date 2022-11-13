@@ -1,12 +1,15 @@
 package apiserver
 
 import (
+	"encoding/csv"
 	"encoding/json"
 	"fmt"
 	"github.com/gorilla/mux"
 	"github.com/sirupsen/logrus"
 	"net/http"
+	"os"
 	"strconv"
+	"strings"
 	"time"
 	"user_balance_microservice/internal/app/model"
 	"user_balance_microservice/internal/app/store"
@@ -38,6 +41,9 @@ func (s *server) configureRouter() {
 	s.router.HandleFunc("/reserve_money", s.handleReserveMoney()).Methods("POST")
 	s.router.HandleFunc("/confirm_reserve", s.handleConfirm()).Methods("POST")
 	s.router.HandleFunc("/abort_reserve", s.handleAbort()).Methods("POST")
+	s.router.HandleFunc("/get_report", s.handleGetReport()).Methods("POST")
+	//s.router.HandleFunc("/csvreports/{filename}", s.getFile()).Methods("GET")
+	s.router.HandleFunc("/account/history", s.handleGetHistory()).Methods("POST")
 }
 
 func (s *server) getBalance() http.HandlerFunc {
@@ -170,7 +176,7 @@ func (s *server) handleReserveMoney() http.HandlerFunc {
 		transaction := &model.Transaction{
 			User_id:     req.User_id,
 			Amount:      req.Amount,
-			Description: "Услуга",
+			Description: "Списание средств за услугу",
 			Service_id:  req.Service_id,
 			Order_id:    req.Order_id,
 			Type:        "reserve",
@@ -290,6 +296,100 @@ func (s *server) handleAbort() http.HandlerFunc {
 		}
 		tx.Commit()
 		s.respond(w, r, http.StatusOK, map[string]string{"success": "Money reserve aborted"})
+	}
+}
+
+func (s *server) handleGetReport() http.HandlerFunc {
+	type request struct {
+		Month int `json:"month"`
+		Year  int `json:"year"`
+	}
+	return func(w http.ResponseWriter, r *http.Request) {
+		req := &request{}
+
+		if err := json.NewDecoder(r.Body).Decode(req); err != nil {
+			s.error(w, r, http.StatusBadRequest, err)
+			return
+		}
+
+		report, err := s.store.Transaction().GetMonthReport(req.Month, req.Year)
+		if err != nil {
+			s.error(w, r, http.StatusUnprocessableEntity, err)
+			return
+		}
+
+		dir := "csvreports"
+		_, err = os.Stat(dir)
+		if os.IsNotExist(err) {
+			err = os.Mkdir(dir, 0777)
+			if err != nil {
+				s.error(w, r, http.StatusInternalServerError, err)
+				return
+			}
+		}
+
+		path := fmt.Sprintf("%s/%d_%d_report.csv", dir, req.Month, req.Year)
+		file, err := os.Create(path)
+		if err != nil {
+			s.error(w, r, http.StatusInternalServerError, err)
+			return
+		}
+		defer file.Close()
+
+		csvWriter := csv.NewWriter(file)
+		defer csvWriter.Flush()
+		for key, value := range report {
+			row := []string{key, strconv.Itoa(value)}
+			if err := csvWriter.Write(row); err != nil {
+				s.error(w, r, http.StatusInternalServerError, err)
+				return
+			}
+		}
+		path = fmt.Sprintf("%s/%s", "localhost:8080", file.Name())
+		s.respond(w, r, http.StatusOK, map[string]string{"file": path})
+	}
+}
+
+func (s *server) handleGetHistory() http.HandlerFunc {
+	type request struct {
+		User_id   int    `json:"id"`
+		Ordering  string `json:"ordering"`
+		Page      int    `json:"page"`
+		Page_size *int   `json:"pageSize,omitempty"`
+	}
+	return func(w http.ResponseWriter, r *http.Request) {
+		req := &request{}
+
+		if err := json.NewDecoder(r.Body).Decode(req); err != nil {
+			s.error(w, r, http.StatusBadRequest, err)
+			return
+		}
+
+		_, err := s.store.UserAccount().FindById(req.User_id)
+		if err != nil {
+			err_str := fmt.Sprintf("No user with id = %d", req.User_id)
+			s.respond(w, r, http.StatusUnprocessableEntity, map[string]string{"error": err_str})
+			return
+		}
+		orderDir := "ASC"
+		if strings.HasPrefix(req.Ordering, "-") {
+			orderDir = "DESC"
+		}
+		orderCol := "amount"
+		if strings.Contains(req.Ordering, "date") {
+			orderCol = "closed_date"
+		}
+		pageSize := 3
+		if req.Page_size != nil {
+			pageSize = *req.Page_size
+		}
+		report, err := s.store.Transaction().GetAccountReport(req.User_id, orderCol, orderDir, req.Page, pageSize)
+		if err != nil {
+			s.error(w, r, http.StatusInternalServerError, err)
+			return
+		}
+
+		s.respond(w, r, http.StatusOK, report)
 	}
 }
 

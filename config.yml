@@ -5,10 +5,4 @@ log_level: debug
 listen:
   type: port
   port: 8080
-database_url: "host=localhost database=avito user=avito password=avito sslmode=disable"
-#storage:
-#  host: localhost
-#  port: 5432
-#  database: avito
-#  username: avito
-#  password: avito
+database_url: "host=db port=5432 database=avito user=avito password=avito sslmode=disable"

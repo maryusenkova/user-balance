@@ -20,4 +20,6 @@ type TransactionRepository interface {
 	GetTransaction(*model.Transaction) (*model.Transaction, error)
 	ConfirmReserveTransaction(*sql.Tx, int) error
 	AbortReserveTransaction(*sql.Tx, int) error
+	GetMonthReport(int, int) (map[string]int, error)
+	GetAccountReport(int, string, string, int, int) (*[]model.AccountTransaction, error)
 }

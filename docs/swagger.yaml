@@ -1,0 +1,183 @@
+---
+openapi: 3.0.0
+info:
+  title: User balance API
+  description: API for working with user balance
+  version: "1.0"
+servers:
+- url: http://localhost:8080
+  description: localhost
+paths:
+  /account/balance:
+    get:
+      summary: Get user balance
+      description: get the user's current balance
+      operationId: get-current-balance
+      parameters:
+      - name: id
+        in: query
+        description: user id
+        required: true
+        style: form
+        explode: true
+        schema:
+          type: integer
+      responses:
+        "200":
+          description: OK
+        "422":
+          description: No user with this id
+        "400":
+          description: User ID have to be a number
+  /account/add:
+    post:
+      summary: Add money to user's account
+      description: add money to user's balance
+      operationId: add-to-balance
+      requestBody:
+        description: user id and amount
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/add_request'
+        required: true
+      responses:
+        "200":
+          description: OK
+        "422":
+          description: Unprocessible entity
+        "400":
+          description: Bad request
+  /reserve_money:
+    post:
+      summary: Reserve money from user's balance
+      description: reserve money from user's balance
+      operationId: reserve
+      requestBody:
+        description: reserve information
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/transaction_request'
+        required: true
+      responses:
+        "200":
+          description: OK
+        "422":
+          description: Unprocessible entity
+        "400":
+          description: Bad request
+  /confirm_reserve:
+    post:
+      summary: Confirm reserve
+      description: confirm reserve
+      operationId: confirm-reserve
+      requestBody:
+        description: reserve information
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/transaction_request'
+        required: true
+      responses:
+        "200":
+          description: OK
+        "422":
+          description: Unprocessible entity
+        "400":
+          description: Bad request
+  /abort_reserve:
+    post:
+      summary: Abort reserve
+      description: abort reserve
+      operationId: abort-reserve
+      requestBody:
+        description: reserve information
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/transaction_request'
+        required: true
+      responses:
+        "200":
+          description: OK
+        "422":
+          description: Unprocessible entity
+        "400":
+          description: Bad request
+  /get_report:
+    post:
+      summary: Abort reserve
+      description: get month report url
+      operationId: get-report
+      requestBody:
+        description: month and year
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/report_request'
+        required: true
+      responses:
+        "200":
+          description: OK
+        "500":
+          description: Internal server error
+        "400":
+          description: Bad request
+  /account/history:
+    post:
+      summary: Abort reserve
+      description: get history of user's transactions
+      operationId: get-history
+      requestBody:
+        description: user id
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/history_request'
+        required: true
+      responses:
+        "200":
+          description: OK
+        "500":
+          description: Internal server error
+        "400":
+          description: Bad request
+components:
+  schemas:
+    add_request:
+      type: object
+      properties:
+        id:
+          type: integer
+        amount:
+          type: integer
+    report_request:
+      type: object
+      properties:
+        month:
+          type: integer
+        year:
+          type: integer
+    history_request:
+      type: object
+      properties:
+        id:
+          type: integer
+        ordering:
+          type: string
+        page:
+          type: integer
+        pageSize:
+          type: integer
+    transaction_request:
+      type: object
+      properties:
+        id:
+          type: integer
+        serviceId:
+          type: integer
+        orderId:
+          type: integer
+        amount:
+          type: integer
